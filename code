@@ -1,0 +1,63 @@
+# Import necessary libraries
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+# Load the dataset
+data = pd.read_csv('Data.csv', encoding="ISO-8859-1")
+
+# Display the first few rows of the dataset
+print(data.head())
+
+# Split the data into training and testing sets based on date
+train_data = data[data['Date'] < '20150101']
+test_data = data[data['Date'] > '20141231']
+
+# Remove special characters and numbers from headlines
+train_text = train_data.iloc[:, 2:27]
+train_text.replace("[^a-zA-Z]", " ", regex=True, inplace=True)
+
+# Rename columns for easier access
+column_indices = [str(i) for i in range(25)]
+train_text.columns = column_indices
+
+# Convert all headlines to lowercase
+for col in column_indices:
+    train_text[col] = train_text[col].str.lower()
+
+# Combine all headlines into a single sentence for each row
+train_sentences = []
+for row in range(len(train_text.index)):
+    train_sentences.append(' '.join(str(x) for x in train_text.iloc[row, :]))
+
+# Initialize CountVectorizer with bigrams
+vectorizer = CountVectorizer(ngram_range=(2, 2))
+train_features = vectorizer.fit_transform(train_sentences)
+
+# Train a Random Forest Classifier
+classifier = RandomForestClassifier(n_estimators=200, criterion='entropy')
+classifier.fit(train_features, train_data['Label'])
+
+# Preprocess the test data
+test_sentences = []
+for row in range(len(test_data.index)):
+    test_sentences.append(' '.join(str(x) for x in test_data.iloc[row, 2:27]))
+
+# Transform test data using the same vectorizer
+test_features = vectorizer.transform(test_sentences)
+
+# Make predictions on the test data
+predictions = classifier.predict(test_features)
+
+# Evaluate the model
+conf_matrix = confusion_matrix(test_data['Label'], predictions)
+accuracy = accuracy_score(test_data['Label'], predictions)
+report = classification_report(test_data['Label'], predictions)
+
+# Display results
+print("Confusion Matrix:")
+print(conf_matrix)
+print("\nAccuracy Score:", accuracy)
+print("\nClassification Report:")
+print(report)
